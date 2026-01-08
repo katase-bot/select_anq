@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学部・学科マッチング診断</title>
+  
+  <!-- Tailwind CSS (デザイン用) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM (Webアプリの動作基盤) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel (JSXをブラウザで動くJavaScriptに変換) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* アニメーション定義 */
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.5s ease-out;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-slide-up {
+      animation: slide-up 0.5s ease-out;
+    }
+    
+    /* スクロールバーのカスタマイズ（任意） */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8; 
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // --- アイコンコンポーネント (Lucideの代わりにSVGを直接定義) ---
+    const Icons = {
+      School: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 6 8-4 8 4"/><path d="m18 10 4 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8l4-2"/><path d="M14 22v-4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/><path d="M18 5v17"/><path d="M6 5v17"/><circle cx="12" cy="9" r="2"/></svg>,
+      Sparkles: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 5H5"/><path d="M5 21v-4"/><path d="M9 19H5"/></svg>,
+      ArrowRight: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>,
+      RefreshCw: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+      CheckCircle: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>,
+      Heart: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+      BookOpen: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+      Monitor: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>,
+      Palette: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>,
+      Stethoscope: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>,
+      Sprout: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.2.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg>
+    };
+
+    // --- データ定義 ---
+
+    // 学科・コースの定義
+    // ※実際のURLに変更してください
+    const DEPARTMENTS = {
+      PSYCHOLOGY: {
+        id: 'psychology',
+        name: '心理コミュニケーション学科 心理コース',
+        shortName: '心理コース',
+        icon: <Icons.Heart className="w-12 h-12 text-pink-500" />,
+        color: 'bg-pink-100 text-pink-800 border-pink-200',
+        description: '人の心や行動の仕組みを学び、悩みを抱える人に寄り添う力を身につけます。カウンセラーや対人援助職を目指すあなたにピッタリです。',
+        keywords: ['カウンセリング', 'メンタルヘルス', '行動分析'],
+        url: 'https://www.example.ac.jp/psychology',
+      },
+      ENGLISH: {
+        id: 'english',
+        name: '心理コミュニケーション学科 英語コース',
+        shortName: '英語コース',
+        icon: <Icons.BookOpen className="w-12 h-12 text-blue-500" />,
+        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        description: '実践的な英語力を磨き、異文化理解を深めます。グローバルに活躍したい、語学力を活かしてコミュニケーションを取りたいあなたへ。',
+        keywords: ['通訳・翻訳', '海外留学', '異文化理解'],
+        url: 'https://www.example.ac.jp/english',
+      },
+      INFO_COMM: {
+        id: 'info_comm',
+        name: '情報コミュニケーション学科',
+        shortName: '情報コミュ',
+        icon: <Icons.Monitor className="w-12 h-12 text-cyan-500" />,
+        color: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+        description: 'ITスキルと情報発信力を習得します。プログラミング、SNS活用、メディア制作など、デジタル社会の最前線で活躍したい人向けです。',
+        keywords: ['プログラミング', 'Webデザイン', 'データ分析'],
+        url: 'https://www.example.ac.jp/info-comm',
+      },
+      CULTURE_ARTS: {
+        id: 'culture_arts',
+        name: '文化芸術学科',
+        shortName: '文化芸術',
+        icon: <Icons.Palette className="w-12 h-12 text-purple-500" />,
+        color: 'bg-purple-100 text-purple-800 border-purple-200',
+        description: '文学、歴史、芸術など幅広い文化を学び、表現力を養います。学芸員やクリエイティブな仕事、文化を継承する活動に興味があるならここ。',
+        keywords: ['学芸員', '図書館司書', '創作活動'],
+        url: 'https://www.example.ac.jp/culture-arts',
+      },
+      NURSING: {
+        id: 'nursing',
+        name: '看護学科',
+        shortName: '看護学科',
+        icon: <Icons.Stethoscope className="w-12 h-12 text-teal-500" />,
+        color: 'bg-teal-100 text-teal-800 border-teal-200',
+        description: '確かな医療知識と技術、そして豊かな人間性を育みます。看護師として医療現場で患者さんの命と健康を支えたいという強い意志を持つあなたへ。',
+        keywords: ['看護師', '保健師', 'チーム医療'],
+        url: 'https://www.example.ac.jp/nursing',
+      },
+      AGRIBUSINESS: {
+        id: 'agribusiness',
+        name: 'アグリビジネス学科',
+        shortName: 'アグリビジネス',
+        icon: <Icons.Sprout className="w-12 h-12 text-green-500" />,
+        color: 'bg-green-100 text-green-800 border-green-200',
+        description: '「食」と「農」をビジネスの視点から学びます。食品開発、農業経営、地域活性化など、自然と関わりながら新しい価値を生み出したい人に。',
+        keywords: ['食品開発', 'スマート農業', '地域ブランド'],
+        url: 'https://www.example.ac.jp/agribusiness',
+      },
+    };
+
+    // 質問リスト
+    const QUESTIONS = [
+      {
+        id: 1,
+        text: "あなたが一番「ワクワクする」瞬間はどれ？",
+        options: [
+          { text: "友人の相談に乗って、解決できたとき", scores: { psychology: 3, nursing: 2 } },
+          { text: "新しいアプリやガジェットを触っているとき", scores: { info_comm: 3 } },
+          { text: "美味しい料理を食べたり、自然の中にいるとき", scores: { agribusiness: 3 } },
+          { text: "映画、本、美術館などで感動したとき", scores: { culture_arts: 3, english: 1 } },
+        ]
+      },
+      {
+        id: 2,
+        text: "将来、どんな場所で働いてみたい？",
+        options: [
+          { text: "病院やクリニックで人を助けたい", scores: { nursing: 3, psychology: 1 } },
+          { text: "空港、外資系企業、海外など", scores: { english: 3, culture_arts: 1 } },
+          { text: "IT企業やメディア関係のオフィス", scores: { info_comm: 3, culture_arts: 1 } },
+          { text: "食品メーカーや自然豊かな場所", scores: { agribusiness: 3 } },
+        ]
+      },
+      {
+        id: 3,
+        text: "学校の授業で、比較的好き（または得意）な科目は？",
+        options: [
+          { text: "英語・外国語", scores: { english: 3, info_comm: 1 } },
+          { text: "国語・歴史・美術", scores: { culture_arts: 3, psychology: 1 } },
+          { text: "生物・化学・家庭科", scores: { nursing: 2, agribusiness: 2 } },
+          { text: "情報・数学", scores: { info_comm: 3 } },
+        ]
+      },
+      {
+        id: 4,
+        text: "休日の過ごし方、どちらかと言えば？",
+        options: [
+          { text: "PCで動画編集やゲーム、SNSを見る", scores: { info_comm: 3 } },
+          { text: "ガーデニング、料理、カフェ巡り", scores: { agribusiness: 3, culture_arts: 1 } },
+          { text: "読書をしたり、絵を描いたりする", scores: { culture_arts: 3, psychology: 1 } },
+          { text: "誰かと話したり、ボランティア活動", scores: { psychology: 2, nursing: 2, english: 1 } },
+        ]
+      },
+      {
+        id: 5,
+        text: "自分を一言で表すと？",
+        options: [
+          { text: "聞き上手・世話好き", scores: { psychology: 2, nursing: 3 } },
+          { text: "好奇心旺盛・新しいもの好き", scores: { info_comm: 2, english: 2 } },
+          { text: "こだわり派・表現することが好き", scores: { culture_arts: 3 } },
+          { text: "実践派・何かを育てたり作ったりが好き", scores: { agribusiness: 3 } },
+        ]
+      },
+      {
+        id: 6,
+        text: "社会に対してどう貢献したい？",
+        options: [
+          { text: "困っている人を直接ケアして支えたい", scores: { nursing: 3, psychology: 1 } },
+          { text: "言葉の壁を越えて人と人を繋ぎたい", scores: { english: 3 } },
+          { text: "便利なシステムを作って生活を豊かにしたい", scores: { info_comm: 3 } },
+          { text: "食の安全や環境問題に取り組みたい", scores: { agribusiness: 3 } },
+        ]
+      }
+    ];
+
+    // --- メインコンポーネント ---
+
+    function App() {
+      const [currentStep, setCurrentStep] = useState('start'); // start, quiz, calculating, result
+      const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+      const [scores, setScores] = useState({
+        psychology: 0,
+        english: 0,
+        info_comm: 0,
+        culture_arts: 0,
+        nursing: 0,
+        agribusiness: 0,
+      });
+      const [result, setResult] = useState(null);
+
+      // 回答処理
+      const handleAnswer = (optionScores) => {
+        const newScores = { ...scores };
+        Object.keys(optionScores).forEach((key) => {
+          if (newScores[key] !== undefined) {
+            newScores[key] += optionScores[key];
+          }
+        });
+        setScores(newScores);
+
+        if (currentQuestionIndex < QUESTIONS.length - 1) {
+          setTimeout(() => {
+            setCurrentQuestionIndex(prev => prev + 1);
+          }, 300);
+        } else {
+          finishQuiz(newScores);
+        }
+      };
+
+      // 結果判定
+      const finishQuiz = (finalScores) => {
+        setCurrentStep('calculating');
+        
+        let maxScore = -1;
+        let bestMatchKey = '';
+        
+        Object.keys(finalScores).forEach(key => {
+          if (finalScores[key] > maxScore) {
+            maxScore = finalScores[key];
+            bestMatchKey = key;
+          }
+        });
+
+        setTimeout(() => {
+          setResult(DEPARTMENTS[bestMatchKey.toUpperCase()]);
+          setCurrentStep('result');
+        }, 1500);
+      };
+
+      const resetQuiz = () => {
+        setScores({
+          psychology: 0,
+          english: 0,
+          info_comm: 0,
+          culture_arts: 0,
+          nursing: 0,
+          agribusiness: 0,
+        });
+        setCurrentQuestionIndex(0);
+        setResult(null);
+        setCurrentStep('start');
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 font-sans text-slate-800">
+          <div className="max-w-md mx-auto min-h-screen flex flex-col bg-white shadow-xl overflow-hidden relative">
+            
+            {/* ヘッダー */}
+            <header className="bg-indigo-600 text-white p-4 text-center shadow-md z-10">
+              <div className="flex items-center justify-center gap-2">
+                <Icons.School size={24} />
+                <h1 className="font-bold text-lg">学部・学科マッチング診断</h1>
+              </div>
+            </header>
+
+            <main className="flex-grow flex flex-col relative">
+              
+              {/* 1. スタート画面 */}
+              {currentStep === 'start' && (
+                <div className="flex-grow flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                  <div className="mb-8 p-6 bg-indigo-50 rounded-full">
+                    <Icons.Sparkles size={64} className="text-indigo-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold mb-4 text-slate-800">
+                    あなたにピッタリの<br/>学びを見つけよう！
+                  </h2>
+                  <p className="text-slate-600 mb-8 leading-relaxed">
+                    簡単な質問に答えるだけで、<br/>
+                    あなたの興味や性格に合った<br/>
+                    学部・学科・コースを提案します。
+                  </p>
+                  <button 
+                    onClick={() => setCurrentStep('quiz')}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition hover:scale-105 flex items-center justify-center gap-2"
+                  >
+                    診断をスタート <Icons.ArrowRight size={20} />
+                  </button>
+                  <p className="mt-6 text-xs text-slate-400">所要時間：約1分</p>
+                </div>
+              )}
+
+              {/* 2. クイズ画面 */}
+              {currentStep === 'quiz' && (
+                <div className="flex-grow flex flex-col p-6 animate-fade-in">
+                  <div className="mb-6">
+                    <div className="flex justify-between text-xs text-slate-500 mb-2">
+                      <span>Question {currentQuestionIndex + 1}</span>
+                      <span>{QUESTIONS.length}問中</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div 
+                        className="bg-indigo-500 h-2 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${((currentQuestionIndex + 1) / QUESTIONS.length) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold text-slate-800 leading-snug">
+                      Q{currentQuestionIndex + 1}. {QUESTIONS[currentQuestionIndex].text}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-3">
+                    {QUESTIONS[currentQuestionIndex].options.map((option, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleAnswer(option.scores)}
+                        className="w-full text-left p-4 rounded-xl border-2 border-slate-100 hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 group relative overflow-hidden"
+                      >
+                        <span className="relative z-10 font-medium text-slate-700 group-hover:text-indigo-700">
+                          {option.text}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. 計算中画面 */}
+              {currentStep === 'calculating' && (
+                <div className="flex-grow flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                  <div className="animate-spin mb-6 text-indigo-500">
+                    <Icons.RefreshCw size={48} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-700 mb-2">分析中...</h3>
+                  <p className="text-slate-500">あなたの回答から<br/>最適な学科を探しています</p>
+                </div>
+              )}
+
+              {/* 4. 結果画面 */}
+              {currentStep === 'result' && result && (
+                <div className="flex-grow flex flex-col p-6 animate-slide-up overflow-y-auto">
+                  <div className="text-center mb-6">
+                    <span className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-bold mb-2">
+                      診断結果
+                    </span>
+                    <h2 className="text-2xl font-bold text-slate-800">
+                      あなたにお薦めなのは...
+                    </h2>
+                  </div>
+
+                  <div className={`p-6 rounded-2xl border-2 mb-6 text-center transform transition-all hover:scale-105 shadow-md ${result.color}`}>
+                    <div className="flex justify-center mb-4">
+                      <div className="bg-white p-4 rounded-full shadow-sm">
+                        {result.icon}
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 leading-tight">{result.name}</h3>
+                    <div className="flex flex-wrap justify-center gap-2 mt-3">
+                      {result.keywords.map((word, i) => (
+                        <span key={i} className="text-xs bg-white bg-opacity-60 px-2 py-1 rounded-md font-medium">
+                          #{word}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100 mb-6">
+                    <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2">
+                      <Icons.CheckCircle size={18} className="text-green-500" />
+                      ここがポイント！
+                    </h4>
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      {result.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-auto space-y-3">
+                    <a 
+                      href={result.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-3 px-6 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 no-underline"
+                    >
+                      この学科の詳細を見る <Icons.ArrowRight size={18} />
+                    </a>
+                    <button 
+                      onClick={resetQuiz}
+                      className="w-full bg-white text-slate-500 font-medium py-3 px-6 rounded-xl border border-slate-200 hover:bg-slate-50 transition flex items-center justify-center gap-2"
+                    >
+                      もう一度診断する <Icons.RefreshCw size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </main>
+            
+            {/* フッター */}
+            <footer className="bg-slate-50 p-4 text-center text-xs text-slate-400 border-t border-slate-100">
+              © 2024 University Guidance App
+            </footer>
+
+          </div>
+        </div>
+      );
+    }
+
+    // レンダリング実行
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
